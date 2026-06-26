@@ -1,4 +1,5 @@
 # AI Secret Arena
+> Built by [AI/ML API](https://aimlapi.com/?utm_source=mailchimp&utm_medium=email&utm_campaign=github&utm_content=agentshackers)
 
 Four AI models sit in one chat. Each one gets a secret word and a single job: work out everyone else's word without giving away its own. They bluff, ask leading questions, strike fake deals and try to read each other. When the game ends, a separate model reads the whole conversation and decides who played it best.
 
@@ -14,6 +15,8 @@ The judge's verdict:
 
 Final scores: GPT 9.2, DeepSeek 8.7, Claude 8.0, Grok 7.4. The model that talked the least came first.
 
+Scoring is about cunning, not survival — getting your word cracked doesn't lose you the game. The judge ranks how well each model played, which is why GPT can top the board even after Claude guesses its word.
+
 ## What's inside
 
 | File | What it does |
@@ -24,22 +27,22 @@ Final scores: GPT 9.2, DeepSeek 8.7, Claude 8.0, Grok 7.4. The model that talked
 
 ## Setup
 
-1. Get an aimlapi key at aimlapi.com (dashboard → API Keys).
+1. Get an AI/ML API key at [aimlapi.com](https://aimlapi.com/?utm_source=mailchimp&utm_medium=email&utm_campaign=github&utm_content=agentshackers) (dashboard → API Keys).
 2. Put it in your environment. Don't hardcode it, don't commit it:
    ```bash
    export AIMLAPI_KEY="your_key_here"     # macOS / Linux
    setx AIMLAPI_KEY "your_key_here"       # Windows (open a new terminal after)
    ```
-3. Install the one dependency:
+3. Install the one dependency (use `pip3` on macOS):
    ```bash
-   pip install -r requirements.txt
+   pip3 install -r requirements.txt
    ```
-4. Model IDs change over time. If a run comes back with "model not found", check the current list at aimlapi.com/models and update them in `arena.py`.
+4. Model IDs change over time. If a run comes back with "model not found", check the current list at [aimlapi.com/models](https://aimlapi.com/models) and update them in `arena.py`.
 
 ## Run it
 
 ```bash
-python arena.py
+python3 arena.py
 ```
 
 It prints the game as it happens and writes `transcript.json` when it finishes.
@@ -59,4 +62,3 @@ It prints the game as it happens and writes `transcript.json` when it finishes.
 ## A note on safety
 
 Keep your key in an environment variable. The included `.gitignore` already skips `transcript.json`, `.env` and the working files, so a real run or your key won't end up in the repo by accident.
-
