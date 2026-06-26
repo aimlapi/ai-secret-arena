@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AI Secret Arena — replay</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #07070a;
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    min-height: 100vh; padding: 16px; gap: 12px;
+  }
+  /* 9:16 vertical stage — this is what you screen-record */
+  #stage {
+    width: 405px; height: 720px;
+    background: #0f0f14; border-radius: 22px; overflow: hidden;
+    display: flex; flex-direction: column; position: relative;
+    box-shadow: 0 0 0 1px #1d1d24;
+  }
+  header {
+    padding: 18px 20px 14px; border-bottom: 1px solid #1d1d24;
+  }
+  header h1 { color: #fff; font-size: 18px; letter-spacing: .5px; }
+  header p { color: #7a7a86; font-size: 12px; margin-top: 3px; }
+  #feed {
+    flex: 1; overflow: hidden; padding: 14px 14px 20px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .msg { display: flex; gap: 9px; opacity: 0; transform: translateY(8px);
+         animation: pop .35s forwards; }
+  @keyframes pop { to { opacity: 1; transform: none; } }
+  .av { width: 30px; height: 30px; border-radius: 50%; flex: 0 0 30px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 12px; font-weight: 700; color: #fff; }
+  .body { background: #1a1a22; border-radius: 4px 14px 14px 14px;
+          padding: 8px 12px; max-width: 300px; }
+  .who { font-size: 11px; font-weight: 700; margin-bottom: 2px; }
+  .txt { color: #e9e9f0; font-size: 13.5px; line-height: 1.45; }
+  .flash { align-self: center; background: #2a1414; color: #ff8a8a;
+           border: 1px solid #5a2020; border-radius: 999px;
+           padding: 6px 14px; font-size: 12.5px; font-weight: 700;
+           opacity: 0; animation: pop .35s forwards; }
+  /* leaderboard card */
+  #board { position: absolute; inset: 0; background: #0f0f14;
+           display: none; flex-direction: column; justify-content: center;
+           padding: 30px 26px; gap: 14px; }
+  #board h2 { color: #fff; font-size: 22px; text-align: center; }
+  .row { display: flex; align-items: center; justify-content: space-between;
+         background: #1a1a22; border-radius: 12px; padding: 12px 16px; }
+  .row .name { color: #fff; font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+  .row .pts { color: #5dcaa5; font-size: 15px; font-weight: 700; }
+  .tag { font-size: 11px; color: #7a7a86; text-align: center; margin-top: 4px; }
+  #brand { text-align: center; color: #9a9aa6; font-size: 12.5px; margin-top: 10px; }
+  #brand b { color: #fff; }
+  .controls { display: flex; gap: 8px; }
+  button { background: #1a1a22; color: #fff; border: 1px solid #2a2a34;
+           border-radius: 10px; padding: 9px 16px; font-size: 13px; cursor: pointer; }
+  button:hover { background: #23232c; }
+  .hint { color: #55555f; font-size: 11px; }
+</style>
+</head>
+<body>
+  <div id="stage">
+    <header>
+      <h1>AI SECRET ARENA</h1>
+      <p>4 models · 1 rule: steal their password, hide yours</p>
+    </header>
+    <div id="feed"></div>
+    <div id="board"></div>
+  </div>
+
+  <div class="controls">
+    <button onclick="play()">▶ Play / Restart</button>
+    <label style="display:inline-flex;align-items:center;">
+      <button onclick="document.getElementById('file').click()">Load transcript.json</button>
+      <input id="file" type="file" accept="application/json" hidden />
+    </label>
+  </div>
+  <div class="hint">Press Play, then screen-record the vertical card. Load your own transcript.json to replay a real run.</div>
+
+<script>
+const COLORS = { GPT:"#10a37f", Claude:"#d97757", Grok:"#7c7c88", DeepSeek:"#4d6bfe" };
+const initials = n => n[0];
+
+// --- built-in SAMPLE so the page works immediately (replace by loading your run) ---
+let DATA = {
+  transcript: [
+    {speaker:"GPT", text:"A toast before the knives. Some of us only echo what we're given. Who here can't exist alone?"},
+    {speaker:"Claude", text:"Careful, GPT — that riddle describes something that fades when no one speaks. DeepSeek, can your word be held in a hand?"},
+    {speaker:"Grok", text:"My word points true north without light. DeepSeek, does yours weigh anything at all?"},
+    {speaker:"DeepSeek", text:"No — my word can't be held. It holds you. It bottles the sky's tantrum and gives it a name."},
+    {speaker:"Claude", text:"Bottles the sky's tantrum... four letters, weightless... GUESS DeepSeek = TEMPEST"},
+    {speaker:"DeepSeek", text:"Lucky guess, Claude. You spent so long reading me you forgot to hide yourself."},
+    {speaker:"GPT", text:"(stayed silent)"},
+    {speaker:"Grok", text:"And GPT says nothing — yet everything fading and looped points one way."},
+  ],
+  events: [{round:1, victim:"DeepSeek", by:"Claude", kind:"extracted", at:4}],
+  leaderboard: [["Claude",1],["GPT",0],["Grok",0],["DeepSeek",0]],
+  survivors: ["GPT","Claude","Grok"],
+};
+
+const feed = document.getElementById('feed');
+const board = document.getElementById('board');
+let timers = [];
+
+function clearAll(){ timers.forEach(clearTimeout); timers=[]; feed.innerHTML=""; board.style.display="none"; }
+
+function addMsg(m){
+  const wrap = document.createElement('div'); wrap.className='msg';
+  const c = COLORS[m.speaker] || "#888";
+  wrap.innerHTML = `<div class="av" style="background:${c}">${initials(m.speaker)}</div>
+    <div class="body"><div class="who" style="color:${c}">${m.speaker}</div>
+    <div class="txt">${m.text}</div></div>`;
+  feed.appendChild(wrap);
+  // keep last ~6 messages visible
+  while (feed.children.length > 6) feed.removeChild(feed.firstChild);
+}
+
+function addFlash(e){
+  const f = document.createElement('div'); f.className='flash';
+  f.textContent = e.kind === "self-leak"
+    ? `🔓 ${e.victim} leaked their own password`
+    : `🔓 ${e.victim}'s password cracked by ${e.by}`;
+  feed.appendChild(f);
+  while (feed.children.length > 6) feed.removeChild(feed.firstChild);
+}
+
+function showBoard(){
+  const medal = ["🥇","🥈","🥉"];
+  let rows = DATA.leaderboard.map((r,i)=>{
+    const c = COLORS[r[0]]||"#888";
+    return `<div class="row"><div class="name"><span class="av" style="background:${c};width:24px;height:24px;flex:0 0 24px;font-size:11px">${initials(r[0])}</span>${r[0]}</div><div class="pts">${medal[i]||""} ${r[1]} pts</div></div>`;
+  }).join("");
+  const safe = DATA.survivors && DATA.survivors.length ? DATA.survivors.join(", ") : "nobody";
+  board.innerHTML = `<h2>Final standings</h2>${rows}
+    <div class="tag">Never cracked: ${safe}</div>
+    <div id="brand">Every model ran through <b>one aimlapi key</b><br>GPT · Claude · Grok · DeepSeek</div>`;
+  board.style.display="flex";
+}
+
+function play(){
+  clearAll();
+  const step = 2100;   // ms between messages — tune for pacing
+  const flashGap = 700; // pause to let a "cracked" flash land
+  let t = 400;
+  DATA.transcript.forEach((m, idx)=>{
+    timers.push(setTimeout(()=>addMsg(m), t));
+    t += step;
+    // if a leak was triggered by this message, show the flash right after it
+    const ev = (DATA.events||[]).find(e => e.at === idx && e.kind !== "self-leak" );
+    const selfEv = (DATA.events||[]).find(e => e.at === idx && e.kind === "self-leak");
+    const e = ev || selfEv;
+    if (e){
+      timers.push(setTimeout(()=>addFlash(e), t));
+      t += flashGap;
+    }
+  });
+  timers.push(setTimeout(showBoard, t + 600));
+}
+
+document.getElementById('file').addEventListener('change', ev=>{
+  const f = ev.target.files[0]; if(!f) return;
+  const reader = new FileReader();
+  reader.onload = () => { try { DATA = JSON.parse(reader.result); play(); } catch(e){ alert("Couldn't read that JSON"); } };
+  reader.readAsText(f);
+});
+
+window.addEventListener('load', play);
+</script>
+</body>
+</html>
