@@ -1,0 +1,21 @@
+# secrets — never commit these
+.env
+*.env
+
+# local game runs (may contain a real run you didn't mean to share)
+transcript.json
+run_*.json
+
+# working / media artifacts (not part of the code)
+out.txt
+hacher*.png
+preview_*.png
+frame_*.png
+eye_check.png
+scene2.json
+scene_*.txt
+
+# os / python noise
+.DS_Store
+__pycache__/
+*.pyc
